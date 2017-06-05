@@ -1,5 +1,9 @@
 package com.esgyn.target;
 
-public interface ITarget {
+import java.sql.Connection;
 
+public interface ITarget {
+	
+	Connection connection = null;
+	public void setTarget();
 }
