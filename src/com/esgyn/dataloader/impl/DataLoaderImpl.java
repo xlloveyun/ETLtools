@@ -44,6 +44,12 @@ public class DataLoaderImpl implements IDataLoader {
 	public void run() {
 		// TODO Auto-generated method stub
 //		Properties prop = null;
+		long start = System.currentTimeMillis();
 		this.loadData(prop);
+		java.text.DecimalFormat   df   =new   java.text.DecimalFormat("#"); 
+		long elapsedTimeMillis = System.currentTimeMillis()-start;
+		String elapsedTimeMin = df.format(elapsedTimeMillis/(60*1000F));
+		float elapsedTimeSec = (elapsedTimeMillis%(60*1000F))/1000F;
+		System.out.println("the total time cost: " + elapsedTimeMin + " minutes; " + elapsedTimeSec + " seconds");
 	}
 }

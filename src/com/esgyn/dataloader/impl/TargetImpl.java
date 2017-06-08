@@ -45,6 +45,7 @@ public class TargetImpl implements ITarget {
 		}
 	}
 
+	@SuppressWarnings("resource")
 	@Override
 	public void WriteTargetToDBFromDB(List<Object> list,Properties prop) {
 		// TODO Auto-generated method stub
@@ -95,7 +96,7 @@ public class TargetImpl implements ITarget {
 			}
 			
 			String insertTable = prop.getProperty("insert.table");
-			insertQuery = "insert into " + insertTable + insertCols + " values" + selectCols;
+			insertQuery = "upsert using load into " + insertTable + insertCols + " values" + selectCols;
 			System.out.println("insertQuery=" + insertQuery);
 			insertPs = insertConn.prepareStatement(insertQuery);
 			int rowCount=0;
@@ -110,7 +111,7 @@ public class TargetImpl implements ITarget {
 					System.out.println("batch inserted lines: " + rowCount);
 				}
 			}
-			if (rowCount!=0) {
+			if ((rowCount%1000)!=0) {
 				insertPs.executeBatch();
 			}
 			System.out.println("All the data have been inserted successfully!");
