@@ -81,9 +81,9 @@ public class TargetImpl implements ITarget {
 			while (it.hasNext()) {
 				String col = it.next().toString();
 				if (it.hasNext()) {
-					insertCols += node.get(col)+",";
+					insertCols += col+",";
 				}else{
-					insertCols += node.get(col) + ")";
+					insertCols += col + ")";
 				}
 				
 				selectColNames.add(col);
@@ -93,6 +93,7 @@ public class TargetImpl implements ITarget {
 					selectCols+="?)";
 				}
 			}
+			
 			String insertTable = prop.getProperty("insert.table");
 			insertQuery = "insert into " + insertTable + insertCols + " values" + selectCols;
 			System.out.println("insertQuery=" + insertQuery);
@@ -101,7 +102,7 @@ public class TargetImpl implements ITarget {
 			while (rs.next()) {
 				rowCount++;
 				for (int i = 1; i <= selectColNames.size(); i++) {
-					insertPs.setObject(i, rs.getObject(selectColNames.get(i-1)));
+					insertPs.setObject(i, rs.getObject(node.get(selectColNames.get(i-1)).toString().replaceAll("\"","")));
 				}
 				insertPs.addBatch();
 				while ((rowCount%1000)==0) {
