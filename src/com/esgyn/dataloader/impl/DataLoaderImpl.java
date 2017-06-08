@@ -22,7 +22,7 @@ public class DataLoaderImpl implements IDataLoader {
 		case "DB2DB":
 			list = source.readFromDBToDB(prop);
 			ITarget target = new TargetImpl();
-			target.WriteTargetToDBFromDB(list);
+			target.WriteTargetToDBFromDB(list,prop);
 			break;
 		case "DB2File":
 			break;

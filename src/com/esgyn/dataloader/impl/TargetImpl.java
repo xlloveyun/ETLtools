@@ -46,7 +46,7 @@ public class TargetImpl implements ITarget {
 	}
 
 	@Override
-	public void WriteTargetToDBFromDB(List<Object> list) {
+	public void WriteTargetToDBFromDB(List<Object> list,Properties prop) {
 		// TODO Auto-generated method stub
 		Connection insertConn=null;
 		PreparedStatement insertPs = null;
@@ -56,7 +56,10 @@ public class TargetImpl implements ITarget {
 		selectPs=(Statement) list.get(1);
 		ResultSet rs = (ResultSet) list.get(2);
 		try {
-			Properties prop = DBUtil.readProperties();
+			if (prop==null) {
+				
+				prop = DBUtil.readProperties();
+			}
 			File file = new File(prop.getProperty("insert.driver.path"));
 			URLClassLoader loader;
 			loader = new URLClassLoader(new URL[] { file.toURI().toURL() });
