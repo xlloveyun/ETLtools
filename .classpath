@@ -28,5 +28,6 @@
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="lib" path="D:/ENV/bak/jdbcT4-2.3.0.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

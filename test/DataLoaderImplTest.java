@@ -1,3 +1,4 @@
+import java.util.Properties;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -6,16 +7,18 @@ import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.log4j.Logger;
 import org.junit.Test;
 
 import com.esgyn.dataloader.impl.DataLoaderImpl;
+import com.esgyn.tools.DBUtil;
 
 public class DataLoaderImplTest {
 	@Test
 	public void testSingleLoader() {
 		DataLoaderImpl loader=new DataLoaderImpl();
-		Thread th = new Thread(loader);
+		Properties prop = DBUtil.readProperties();
+		loader.loadData(prop);
+		/*Thread th = new Thread(loader);
 		th.start();
 		while (th.isAlive()) {
 			try {
@@ -24,7 +27,7 @@ public class DataLoaderImplTest {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-		}
+		}*/
 	}
 	@Test
 	public void testWithFixedPool() {

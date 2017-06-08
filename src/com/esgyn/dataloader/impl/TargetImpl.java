@@ -1,6 +1,7 @@
 package com.esgyn.dataloader.impl;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -11,6 +12,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
@@ -19,6 +22,9 @@ import org.apache.log4j.Logger;
 
 import com.esgyn.dataloader.ITarget;
 import com.esgyn.tools.DBUtil;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class TargetImpl implements ITarget {
 	private BlockingQueue<StringBuilder> queue = null;
@@ -35,7 +41,6 @@ public class TargetImpl implements ITarget {
 		try {
 			logger.info(queue.take().toString());
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
@@ -52,27 +57,48 @@ public class TargetImpl implements ITarget {
 		ResultSet rs = (ResultSet) list.get(2);
 		try {
 			Properties prop = DBUtil.readProperties();
-			File file = new File(prop.getProperty("driver.path"));
+			File file = new File(prop.getProperty("insert.driver.path"));
 			URLClassLoader loader;
 			loader = new URLClassLoader(new URL[] { file.toURI().toURL() });
-			Object clazz = loader.loadClass(prop.getProperty("jdbc.driver")).newInstance();
+			Object clazz = loader.loadClass(prop.getProperty("insert.jdbc.driver")).newInstance();
 			Driver myDriver = (Driver) clazz;
 
 			Properties Obj = new Properties();
 			Obj.setProperty("user", prop.getProperty("insert.user"));
 			Obj.setProperty("password", prop.getProperty("insert.pwd"));
 			insertConn = myDriver.connect(prop.getProperty("jdbc.insert.url"), Obj);
-			insertPs = insertConn.prepareStatement(prop.getProperty("insert.test.query"));
+			String columns = prop.getProperty("mapping");
+			ObjectMapper mapper = new ObjectMapper();
+			JsonNode node = mapper.readTree(columns);
+			Iterator<String> it = node.fieldNames();
+			List<String> selectColNames = new ArrayList<String>();
+			String insertCols="(";
+			String selectCols = "(";
+			String insertQuery = "";
+			while (it.hasNext()) {
+				String col = it.next().toString();
+				if (it.hasNext()) {
+					insertCols += node.get(col)+",";
+				}else{
+					insertCols += node.get(col) + ")";
+				}
+				
+				selectColNames.add(col);
+				if (it.hasNext()) {
+					selectCols+="?,";
+				}else{
+					selectCols+="?)";
+				}
+			}
+			String insertTable = prop.getProperty("insert.table");
+			insertQuery = "insert into " + insertTable + insertCols + " values" + selectCols;
+			System.out.println("insertQuery=" + insertQuery);
+			insertPs = insertConn.prepareStatement(insertQuery);
 			int rowCount=0;
-			Object colName=null;
-			Object colVal=null;
 			while (rs.next()) {
 				rowCount++;
-				for (int i = 1; i <= rs.getMetaData().getColumnCount(); i++) {
-					colVal= rs.getObject(i);
-					colName=rs.getMetaData().getColumnName(i);
-					insertPs.setObject(i, colVal);
-					System.out.println(colName + "=" + colVal + "; \n");
+				for (int i = 1; i <= selectColNames.size(); i++) {
+					insertPs.setObject(i, rs.getObject(selectColNames.get(i-1)));
 				}
 				insertPs.addBatch();
 				while ((rowCount%1000)==0) {
@@ -102,6 +128,12 @@ public class TargetImpl implements ITarget {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (JsonProcessingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}finally{

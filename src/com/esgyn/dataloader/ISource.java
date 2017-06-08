@@ -1,13 +1,13 @@
 package com.esgyn.dataloader;
 
-import java.sql.ResultSet;
 import java.util.List;
+import java.util.Properties;
 
 public interface ISource{
 
-	public void readFromDBToFile();
+	public void readFromDBToFile(Properties prop);
 	
-	public List<Object> readFromDBToDB();
+	public List<Object> readFromDBToDB(Properties prop);
 	
 	public void readFromFile();
 	

@@ -20,7 +20,7 @@ public class DataLoaderImpl implements IDataLoader {
 		List<Object> list = null;
 		switch (direction) {
 		case "DB2DB":
-			list = source.readFromDBToDB();
+			list = source.readFromDBToDB(prop);
 			ITarget target = new TargetImpl();
 			target.WriteTargetToDBFromDB(list);
 			break;
