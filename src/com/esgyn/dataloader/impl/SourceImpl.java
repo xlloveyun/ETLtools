@@ -17,6 +17,8 @@ import java.util.Properties;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
+import org.apache.log4j.Logger;
+
 import com.esgyn.dataloader.ISource;
 import com.esgyn.tools.DBUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -25,7 +27,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class SourceImpl implements ISource {
 	private BlockingQueue<StringBuilder> queue = null;
-
+	private static Logger logger = Logger.getLogger(SourceImpl.class);
 	public SourceImpl(BlockingQueue<StringBuilder> queue) {
 		this.queue = queue;
 	}
@@ -49,7 +51,7 @@ public class SourceImpl implements ISource {
 			ResultSet rs = null;
 			Connection selectConn = null;
 			String selectTable = prop.getProperty("select.table");
-			String selectQuery = "select * from " + selectTable;
+			String selectQuery = "select * from " + selectTable +"limit 10000";
 			String columns = prop.getProperty("mapping");
 			ObjectMapper mapper = new ObjectMapper();
 			JsonNode node = mapper.readTree(columns);
@@ -117,7 +119,7 @@ public class SourceImpl implements ISource {
 			selectPs = selectConn.createStatement();
 			rs = selectPs.executeQuery(selectQuery);
 		} catch (SQLException e) {
-			// TODO Auto-generated catch block
+			logger.error(e);
 			e.printStackTrace();
 		}
 		list.add(selectConn);
@@ -147,6 +149,7 @@ public class SourceImpl implements ISource {
 			Obj.setProperty("password", selectPwd);
 			selectConn = myDriver.connect(selectUrl, Obj);
 		} catch (Exception e) {
+			logger.error(e);
 			e.printStackTrace();
 		}
 		return selectConn;

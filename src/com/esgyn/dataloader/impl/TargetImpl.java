@@ -100,18 +100,22 @@ public class TargetImpl implements ITarget {
 			System.out.println("insertQuery=" + insertQuery);
 			insertPs = insertConn.prepareStatement(insertQuery);
 			int rowCount=0;
+			int batchSize=1000;
 			while (rs.next()) {
 				rowCount++;
 				for (int i = 1; i <= selectColNames.size(); i++) {
 					insertPs.setObject(i, rs.getObject(node.get(selectColNames.get(i-1)).toString().replaceAll("\"","")));
 				}
 				insertPs.addBatch();
-				if ((rowCount%1000)==0) {
+				if (!prop.getProperty("batch.size").equalsIgnoreCase("")) {
+					batchSize=Integer.valueOf(prop.getProperty("batch.size"));
+				}
+				if ((rowCount%batchSize)==0) {
 					insertPs.executeBatch();
 					System.out.println("batch inserted lines: " + rowCount);
 				}
 			}
-			if ((rowCount%1000)!=0) {
+			if ((rowCount%batchSize)!=0) {
 				insertPs.executeBatch();
 			}
 			System.out.println("All the data have been inserted successfully!");
@@ -121,26 +125,19 @@ public class TargetImpl implements ITarget {
 			insertPs.close();
 			insertConn.close();
 		} catch (SQLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error(e);
 		} catch (ClassNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error(e);
 		} catch (InstantiationException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error(e);
 		} catch (IllegalAccessException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error(e);
 		} catch (MalformedURLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error(e);
 		} catch (JsonProcessingException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error(e);
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error(e);
 		}finally{
 			if (rs!=null) {
 				try {

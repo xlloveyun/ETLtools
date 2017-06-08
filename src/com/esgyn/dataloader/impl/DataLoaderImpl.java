@@ -3,28 +3,30 @@ package com.esgyn.dataloader.impl;
 import java.util.List;
 import java.util.Properties;
 
+import org.apache.log4j.Logger;
+
 import com.esgyn.dataloader.IDataLoader;
 import com.esgyn.dataloader.ISource;
 import com.esgyn.dataloader.ITarget;
 
 public class DataLoaderImpl implements IDataLoader {
-	Properties prop = null;
+	private Properties prop = null;
+	private static Logger logger = Logger.getLogger(TargetImpl.class);
 	
 	public DataLoaderImpl(){
 		
 	}
 	public DataLoaderImpl(Properties prop){
 		this.prop= prop;
-		run();
 	}
 
 	private String direction = "DB2DB";
 	public static void main(String[] args){
-		DataLoaderImpl loader = new DataLoaderImpl();
 		Properties prop = new Properties();
-		loader.loadData(prop);
+		DataLoaderImpl loader = new DataLoaderImpl(prop);
+		loader.loadData();
 	}
-	public void loadData(Properties prop) {
+	public void loadData() {
 		ISource source = new SourceImpl();
 		List<Object> list = null;
 		switch (direction) {
@@ -42,10 +44,8 @@ public class DataLoaderImpl implements IDataLoader {
 
 	@Override
 	public void run() {
-		// TODO Auto-generated method stub
-//		Properties prop = null;
 		long start = System.currentTimeMillis();
-		this.loadData(prop);
+		this.loadData();
 		java.text.DecimalFormat   df   =new   java.text.DecimalFormat("#"); 
 		long elapsedTimeMillis = System.currentTimeMillis()-start;
 		String elapsedTimeMin = df.format(elapsedTimeMillis/(60*1000F));
