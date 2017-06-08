@@ -105,7 +105,7 @@ public class TargetImpl implements ITarget {
 					insertPs.setObject(i, rs.getObject(node.get(selectColNames.get(i-1)).toString().replaceAll("\"","")));
 				}
 				insertPs.addBatch();
-				while ((rowCount%1000)==0) {
+				if ((rowCount%1000)==0) {
 					insertPs.executeBatch();
 					System.out.println("batch inserted lines: " + rowCount);
 				}
