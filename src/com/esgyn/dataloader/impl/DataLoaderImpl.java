@@ -8,6 +8,15 @@ import com.esgyn.dataloader.ISource;
 import com.esgyn.dataloader.ITarget;
 
 public class DataLoaderImpl implements IDataLoader {
+	Properties prop = null;
+	
+	public DataLoaderImpl(){
+		
+	}
+	public DataLoaderImpl(Properties prop){
+		this.prop= prop;
+		run();
+	}
 
 	private String direction = "DB2DB";
 	public static void main(String[] args){
@@ -34,7 +43,7 @@ public class DataLoaderImpl implements IDataLoader {
 	@Override
 	public void run() {
 		// TODO Auto-generated method stub
-		Properties prop = null;
+//		Properties prop = null;
 		this.loadData(prop);
 	}
 }
