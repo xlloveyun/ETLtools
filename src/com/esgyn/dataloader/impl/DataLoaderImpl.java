@@ -1,5 +1,7 @@
 package com.esgyn.dataloader.impl;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Properties;
 
@@ -11,7 +13,7 @@ import com.esgyn.dataloader.ITarget;
 
 public class DataLoaderImpl implements IDataLoader {
 	private Properties prop = null;
-	private static Logger logger = Logger.getLogger(TargetImpl.class);
+	private static Logger logger = Logger.getLogger(DBTargetImpl.class);
 	
 	public DataLoaderImpl(){
 		
@@ -19,26 +21,34 @@ public class DataLoaderImpl implements IDataLoader {
 	public DataLoaderImpl(Properties prop){
 		this.prop= prop;
 	}
-
-	private String direction = "DB2DB";
-	public static void main(String[] args){
-		Properties prop = new Properties();
-		DataLoaderImpl loader = new DataLoaderImpl(prop);
-		loader.loadData();
-	}
 	public void loadData() {
-		ISource source = new SourceImpl();
-		List<Object> list = null;
-		switch (direction) {
-		case "DB2DB":
-			list = source.readFromDBToDB(prop);
-			ITarget target = new TargetImpl();
-			target.WriteTargetToDBFromDB(list,prop);
-			break;
-		case "DB2File":
-			break;
-		case "File2File":
-			break;
+		String sourceImpl = prop.getProperty("sourceImpl","com.esgyn.dataloader.impl.DBSourceImpl");
+		String tgtImpl = prop.getProperty("targetImpl","com.esgyn.dataloader.impl.DBTargetImpl");
+		try {
+			ITarget target = (ITarget) Class.forName(tgtImpl).getDeclaredConstructor(Properties.class).newInstance(prop);
+			ISource source = (ISource) Class.forName(sourceImpl).getDeclaredConstructor(Properties.class,ITarget.class).newInstance(prop,target);
+			source.process();
+		} catch (InstantiationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IllegalAccessException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IllegalArgumentException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (InvocationTargetException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (NoSuchMethodException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (SecurityException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 	}
 

@@ -15,19 +15,18 @@ import com.esgyn.tools.DBUtil;
 public class DataLoaderImplTest {
 	@Test
 	public void testSingleLoader() {
-		DataLoaderImpl loader=new DataLoaderImpl();
 		Properties prop = DBUtil.readProperties();
-		loader.loadData(prop);
-		/*Thread th = new Thread(loader);
+		DataLoaderImpl loader=new DataLoaderImpl(prop);
+		/*loader.loadData();*/
+		Thread th = new Thread(loader);
 		th.start();
 		while (th.isAlive()) {
 			try {
 				th.sleep(1000);
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-		}*/
+		}
 	}
 	@Test
 	public void testWithFixedPool() {
