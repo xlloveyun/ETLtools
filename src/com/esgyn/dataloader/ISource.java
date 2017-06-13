@@ -1,10 +1,13 @@
 package com.esgyn.dataloader;
 
+import java.sql.ResultSet;
 import java.util.List;
 import java.util.Properties;
 
+import com.esgyn.dataloader.impl.ColumnDesc;
+
 public interface ISource{
-	public void read();
+	public ResultSet read();
 	public List<ColumnDesc> getColumns();
-	public void process();
+	public void closeConnection();
 }

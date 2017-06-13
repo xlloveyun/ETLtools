@@ -9,20 +9,19 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 
-import com.esgyn.dataloader.impl.DataLoaderImpl;
+import com.esgyn.dataloader.impl.SingleDataLoaderImpl;
 import com.esgyn.tools.DBUtil;
 
 public class DataLoaderImplTest {
 	@Test
 	public void testSingleLoader() {
 		Properties prop = DBUtil.readProperties();
-		DataLoaderImpl loader=new DataLoaderImpl(prop);
-		/*loader.loadData();*/
-		Thread th = new Thread(loader);
-		th.start();
-		while (th.isAlive()) {
+		SingleDataLoaderImpl loader1=new SingleDataLoaderImpl(prop);
+		Thread th1 = new Thread(loader1);
+		th1.start();
+		while (th1.isAlive()) {
 			try {
-				th.sleep(1000);
+				th1.sleep(1000);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
@@ -31,7 +30,7 @@ public class DataLoaderImplTest {
 	@Test
 	public void testWithFixedPool() {
 		ExecutorService service =Executors.newFixedThreadPool(1);
-		DataLoaderImpl loader=new DataLoaderImpl();
+		SingleDataLoaderImpl loader=new SingleDataLoaderImpl();
 		service.submit(loader);
 		while (!service.isTerminated()) {
 		}

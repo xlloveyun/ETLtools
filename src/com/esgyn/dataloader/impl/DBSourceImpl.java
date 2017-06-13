@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.Driver;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -15,29 +16,26 @@ import java.util.List;
 import java.util.Properties;
 import org.apache.log4j.Logger;
 
-import com.esgyn.dataloader.ColumnDesc;
 import com.esgyn.dataloader.ISource;
 import com.esgyn.dataloader.ITarget;
 import com.esgyn.tools.DBUtil;
+import com.esgyn.tools.SQLTypeMap;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class DBSourceImpl implements ISource {
 	private static Logger logger = Logger.getLogger(DBSourceImpl.class);
-	private ITarget target=null;
 	private Properties config=null;
-	private ResultSet rs =null;
 	private Connection selectConn =null;
 	private Statement selectPs =null;
 
-	public DBSourceImpl(Properties prop,ITarget target) {
+	public DBSourceImpl(Properties prop) {
 		if (prop==null) {
 			this.config=DBUtil.readProperties();
 		}else{
 			this.config=prop;
 		}
-		this.target = target;
 		selectConn = getConection();
 		try {
 			selectPs = selectConn.createStatement();
@@ -46,15 +44,16 @@ public class DBSourceImpl implements ISource {
 		}
 	}
 	@Override
-	public void read(){
+	public ResultSet read(){
+		ResultSet rs = null;
 		try {
 			String selectTable = config.getProperty("select.table");
 			String selectQuery = "select * from " + selectTable;
 			rs = selectPs.executeQuery(selectQuery);
 		} catch (SQLException e) {
 			logger.error(e);
-			e.printStackTrace();
 		}
+		return rs;
 	}
 	@SuppressWarnings("resource")
 	private Connection getConection() {
@@ -76,7 +75,6 @@ public class DBSourceImpl implements ISource {
 			selectConn = myDriver.connect(selectUrl, Obj);
 		} catch (Exception e) {
 			logger.error(e);
-			e.printStackTrace();
 		}
 		return selectConn;
 	}
@@ -88,74 +86,40 @@ public class DBSourceImpl implements ISource {
 		JsonNode node;
 		List<ColumnDesc> selectColNames = new ArrayList<ColumnDesc>();
 		try {
+			DatabaseMetaData metaData = selectConn.getMetaData();
 			node = mapper.readTree(columns);
 			Iterator<String> it = node.fieldNames();
 			while (it.hasNext()) {
 				String col = it.next().toString();
-				ColumnDesc columDesc = new ColumnDesc(col); 
-				selectColNames.add(columDesc);
+				String tableStr=config.getProperty("select.table").toUpperCase();
+				String tableName = tableStr.substring(tableStr.lastIndexOf(".") +1);
+				String catalog = tableStr.substring(0,tableStr.indexOf("."));
+				String schema = tableStr.substring(tableStr.indexOf(".")+1, tableStr.lastIndexOf("."));
+				ResultSet metaRs = metaData.getColumns(catalog, schema, tableName, col);
+				if( metaRs.next() ){
+					int intType = metaRs.getInt( "DATA_TYPE" );
+					String databaseType = SQLTypeMap.convert( intType );
+					ColumnDesc columDesc = new ColumnDesc(col,databaseType); 
+					selectColNames.add(columDesc);
+				}
 			}
 		} catch (JsonProcessingException e) {
-			e.printStackTrace();
+			logger.error(e);
 		} catch (IOException e) {
-			e.printStackTrace();
+			logger.error(e);
+		} catch (SQLException e) {
+			logger.error(e);
 		}
 		return selectColNames;
 	}
-
 	@Override
-	public void process() {
-		this.read();
-		List<ColumnDesc> selectCols = this.getColumns();
-		int rowCount=0;
-		int batchSize=1000;
+	public void closeConnection() {
 		try {
-			while (rs.next()) {
-				rowCount++;
-				List<Object> cols = new ArrayList<Object>();
-				for (int i = 0; i < selectCols.size(); i++) {
-					cols.add(rs.getObject(selectCols.get(i).getColName()));
-				}
-				target.addLine(cols);
-				if ((rowCount%batchSize)==0) {
-					target.commit();
-					logger.info("it has inserted " + rowCount + " lines data successfully!");
-				}
-			}
-			if ((rowCount%batchSize)!=0) {
-				target.commit();
-				logger.info("it has inserted " + rowCount + " lines data successfully!");
-			}
-			rs.close();
-			selectPs.close();
-			selectConn.close();
+			this.selectPs.close();
+			this.selectConn.close();
 		} catch (SQLException e) {
-			e.printStackTrace();
-		}finally{
-			if (rs!=null) {
-				try {
-					rs.close();
-				} catch (SQLException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-			if (selectPs!=null) {
-				try {
-					selectPs.close();
-				} catch (SQLException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-			if (selectConn!=null) {
-				try {
-					selectConn.close();
-				} catch (SQLException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
+			logger.error(e);
 		}
+		
 	}
 }

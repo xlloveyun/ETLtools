@@ -1,8 +1,13 @@
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -15,16 +20,39 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.esgyn.tools.DBUtil;
+import com.esgyn.tools.SQLTypeMap;
+
 public class EtlDemo {
 	private static Connection selectConn=null;
 	private static Connection insertConn=null;
 	private static Statement selectPs=null;
 	private static PreparedStatement insertPs=null;
 	private static ResultSet rs=null;
+	private static Properties config = null;
 
+	@SuppressWarnings("resource")
 	@BeforeClass
 	public static void setUpBeforeClass() throws Exception {
-		Class.forName("org.trafodion.jdbc.t4.T4Driver");
+		config=DBUtil.readProperties();
+		try {
+			String selectUrl = config.getProperty("jdbc.select.url");
+			String selectUsr = config.getProperty("select.user");
+			String selectPwd = config.getProperty("select.pwd");
+			String driver = config.getProperty("select.jdbc.driver");
+			File file = new File(config.getProperty("select.driver.path"));
+			URLClassLoader loader;
+			loader = new URLClassLoader(new URL[] { file.toURI().toURL() });
+			Object clazz = loader.loadClass(driver).newInstance();
+			Driver myDriver = (Driver) clazz;
+
+			Properties Obj = new Properties();
+			Obj.setProperty("user", selectUsr);
+			Obj.setProperty("password", selectPwd);
+			selectConn = myDriver.connect(selectUrl, Obj);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 	@AfterClass
 	public static void setUpAfterClass() throws Exception {
@@ -51,36 +79,31 @@ public class EtlDemo {
 		try
 		{
 		bw = new BufferedWriter(new FileWriter("dump.txt"));
-		Properties prop = new Properties();
-		prop.load(ClassLoader.getSystemResource("db.properties").openStream());
-		String selectUrl = prop.getProperty("jdbc.select.url");
-		String selectUsr = prop.getProperty("select.user");
-		String selectPwd = prop.getProperty("select.pwd");
-		String selectQuery = prop.getProperty("select.query");	
-		selectConn=DriverManager.getConnection(selectUrl, selectUsr, selectPwd);
 		selectPs=selectConn.createStatement();
+		String selectQuery= config.getProperty("select.test.query");
 		rs = selectPs.executeQuery(selectQuery);
+		DatabaseMetaData metaData = selectConn.getMetaData();
 		while ( rs.next())  
 		{  
 		int colCount = rs.getMetaData().getColumnCount();
 		String colName="";
 		for (int i = 0; i < colCount; i++) {
-			colName = rs.getMetaData().getColumnName(i);
-			Object val=rs.getObject(i);
-			System.out.println(colName + "=" + val + "; ");
+			colName = rs.getMetaData().getColumnName(i+1);
+			Object val=rs.getObject(i+1);
+			String tableStr=config.getProperty("select.table").toUpperCase();
+			String tableName = tableStr.substring(tableStr.lastIndexOf(".") +1);
+			String catalog = tableStr.substring(0,tableStr.indexOf("."));
+			String schema = tableStr.substring(tableStr.indexOf(".")+1, tableStr.lastIndexOf("."));
+			ResultSet metaRs = metaData.getColumns(catalog, schema, tableName, colName);
+			if( metaRs.next() ) {
+			      int intType = metaRs.getInt( "DATA_TYPE" );
+			      Object databaseType = SQLTypeMap.convert( intType );
+			      System.out.println(colName + "=" + val + "; " + "databaseType=" + databaseType);
+			    }
+			    else {
+			      throw new Exception( "Unknown database column " + colName + '.' );
+			    }
 		}
-		/*String meterId = rs.getString("METER_ID");
-		String dataDate = rs.getString("DATA_DATE");
-		String dayEneId = rs.getString("DAY_ENE_ID");
-		String meteringTime = rs.getString("METERING_TIME");
-		String papE = rs.getString("PAP_E");
-		String papE1 = rs.getString("PAP_E1");
-		String papE2 = rs.getString("PAP_E2");
-		String papE3 = rs.getString("PAP_E3");
-		String papE4 = rs.getString("PAP_E4");*/
-		/*bw.write("meterId = " + meterId + "; dataDate = " + dataDate + "; dayEneId = " + dayEneId + "; meteringTime = " + meteringTime + 
-				"; papE = " + papE + "; papE1 = " + papE1 + "; papE2 = " + papE2 + "; papE3 = " + papE3 + "; papE4 = " + papE4 + "\n");
-				*/
 		}
 		long elapsedTimeMillis = System.currentTimeMillis()-start;
 		float elapsedTimeMin = elapsedTimeMillis/(60*1000F);

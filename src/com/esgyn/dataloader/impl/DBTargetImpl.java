@@ -8,6 +8,7 @@ import java.net.URLClassLoader;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -16,7 +17,7 @@ import java.util.Properties;
 
 import org.apache.log4j.Logger;
 
-import com.esgyn.dataloader.ColumnDesc;
+import com.esgyn.dataloader.ISource;
 import com.esgyn.dataloader.ITarget;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -28,15 +29,100 @@ public class DBTargetImpl implements ITarget {
 	private Properties prop=null;
 	private Connection insertConn = null;
 	private PreparedStatement insertPs = null;
-	public DBTargetImpl(Properties prop) {
+	private ResultSet rs =null;
+	private ISource	source = null;
+	private List<ColumnDesc> selectCols = null;
+	public DBTargetImpl(Properties prop,ISource source) throws Exception {
 		this.prop=prop;
+		this.source=source;
 		try {
+			selectCols = source.getColumns();
 			this.getColumns();
-			insertConn = this.getInsertConnection();
-			insertPs = insertConn.prepareStatement(insertQuery);
+			if (!selectCols.isEmpty()) {
+				insertConn = this.getInsertConnection();
+				insertPs = insertConn.prepareStatement(insertQuery);
+			}
 		} catch (SQLException e) {
-			e.printStackTrace();
+			logger.error(e);
+			try {
+				if (e.getMessage().contains(prop.getProperty("insert.table") + " does not exist or is inaccessible")) {
+					String createQuery = this.getCreateQuery(selectCols);
+					insertPs = insertConn.prepareStatement(createQuery);
+					int isCreated = insertPs.executeUpdate();
+					if (isCreated==0) {
+						insertPs = insertConn.prepareStatement(insertQuery);
+					}else{
+						throw new Exception("table" + prop.getProperty("insert.table")+ "could not be auto created!");
+					}
+				}
+			} catch (SQLException e1) {
+				logger.error(e);
+			}
 		}
+	}
+	@Override
+	public void process() {
+		rs = source.read();
+		int rowCount=0;
+		int batchSize=1000;
+		try {
+			while (rs.next()) {
+				rowCount++;
+				List<Object> cols = new ArrayList<Object>();
+				for (int i = 0; i < selectCols.size(); i++) {
+					cols.add(rs.getObject(selectCols.get(i).getColName()));
+				}
+				this.addLine(cols);
+				batchSize=Integer.parseInt(prop.getProperty("batch.size"));
+				if ((rowCount%batchSize)==0) {
+					this.commit();
+					logger.info("it has inserted " + rowCount + " lines data successfully!");
+				}
+			}
+			if ((rowCount%batchSize)!=0) {
+				this.commit();
+				logger.info("it has inserted " + rowCount + " lines data successfully!");
+			}
+		} catch (SQLException e) {
+			logger.error(e);
+		}finally{
+			source.closeConnection();
+			if (rs!=null) {
+				try {
+					rs.close();
+				} catch (SQLException e) {
+					logger.error(e);
+				}
+			}
+			if (insertPs!=null) {
+				try {
+					insertPs.close();
+				} catch (SQLException e) {
+					logger.error(e);
+				}
+			}
+			if (insertConn!=null) {
+				try {
+					insertConn.close();
+				} catch (SQLException e) {
+					logger.error(e);
+				}
+			}
+		}
+	}
+	private String getCreateQuery(List<ColumnDesc> cols) {
+		String createQuery = "create table " +  prop.getProperty("insert.table");
+		String createColStr = "(";
+		for (Iterator iterator = cols.iterator(); iterator.hasNext();) {
+			ColumnDesc colum = (ColumnDesc) iterator.next();
+			if (iterator.hasNext()) {
+				createColStr+=colum.getColName() +" "+ colum.getDataType()+ ",";
+			}else{
+				createColStr+=colum.getColName() +" "+ colum.getDataType()+ ")";
+			}
+		}
+		createQuery +=createColStr;
+		return createQuery;
 	}
 	@Override
 	public void addLine(List<Object> cols) {
@@ -54,9 +140,9 @@ public class DBTargetImpl implements ITarget {
 	public Long commit() {
 		try {
 			insertPs.executeBatch();
+			insertPs.clearBatch();
 		} catch (SQLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error(e);
 		}
 		return null;
 	}
@@ -73,20 +159,15 @@ public class DBTargetImpl implements ITarget {
 			Obj.setProperty("password", prop.getProperty("insert.pwd"));
 			insertConn = myDriver.connect(prop.getProperty("jdbc.insert.url"), Obj);
 		} catch (MalformedURLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error(e);
 		} catch (InstantiationException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error(e);
 		} catch (IllegalAccessException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error(e);
 		} catch (ClassNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error(e);
 		} catch (SQLException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.error(e);
 		}
 		return insertConn;
 	}
@@ -109,7 +190,7 @@ public class DBTargetImpl implements ITarget {
 				}else{
 					insertColsStr += col + ")";
 				}
-				ColumnDesc colDesc = new ColumnDesc(col);
+				ColumnDesc colDesc = new ColumnDesc(col,"");
 				insertCols.add(colDesc);
 				if (it.hasNext()) {
 					selectColsStr+="?,";
@@ -120,10 +201,33 @@ public class DBTargetImpl implements ITarget {
 			String insertTable = prop.getProperty("insert.table");
 			insertQuery = "upsert using load into " + insertTable + insertColsStr + " values" + selectColsStr;
 		} catch (JsonProcessingException e) {
-			e.printStackTrace();
+			logger.error(e);
 		} catch (IOException e) {
-			e.printStackTrace();
+			logger.error(e);
 		}
 		return insertCols;
+	}
+	public void closeConnection(){
+		try {
+			this.insertConn.close();
+			this.insertPs.close();
+		} catch (SQLException e) {
+			logger.error(e);
+		}finally{
+			if (this.insertConn!=null) {
+				try {
+					this.insertConn.close();
+				} catch (SQLException e) {
+					logger.error(e);
+				}
+			}
+			if (this.insertPs!=null) {
+				try {
+					this.insertPs.close();
+				} catch (SQLException e) {
+					logger.error(e);
+				}
+			}
+		}
 	}
 }
